@@ -64,6 +64,61 @@ class BookstackAPI:
             # Print the error message if the request failed
             print(f"API request failed: {response.text}")
             return None
+        
+    def list_page(self):
+        header = self.header
+        header["Content-Type"]: 'application/json'
+        
+        response = requests.get(
+            f"{self.cred['url']}api/pages/?count=500", headers=header)
+
+        # Check if the request was successful (201 status code)
+        if response.status_code == 200:
+            # Print the API response data
+            print("request suceed")
+            return response.json()
+        else:
+            # Print the error message if the request failed
+            print(f"API request failed: {response.text}")
+            return None
+
+    def read_page(self, page_id):
+        header = self.header
+        header["Content-Type"]: 'application/json'
+
+        response = requests.get(
+            f"{self.cred['url']}api/pages/{page_id}", headers=header)
+
+        # Check if the request was successful (201 status code)
+        if response.status_code == 200:
+            # Print the API response data
+            # print("request suceed")
+            return response.json()
+        else:
+            # Print the error message if the request failed
+            print(f"API request failed: {response.text}")
+            return None
+        
+
+    def delete_page(self, page_id):
+        header = self.header
+        header["Content-Type"]: 'application/json'
+
+        response = requests.delete(
+            f"{self.cred['url']}api/pages/{page_id}", headers=header)
+
+        # Check if the request was successful (201 status code)
+        if response.status_code == 204:
+            # Print the API response data
+            print("request suceed")
+            return response
+        else:
+            # Print the error message if the request failed
+            print(f"API request failed: {response.text}")
+            print(response)
+            return None
+        
+
 
     def create_attachment(self, page_id, title, file_path):
         header = self.header
