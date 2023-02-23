@@ -142,3 +142,25 @@ class BookstackAPI:
             # Print the error message if the request failed
             print(f"API request failed: {response.text}")
             return None
+        
+    def create_book(self, title, description):
+        header = self.header
+        header["Content-Type"]: 'multipart/form-data'
+
+        payload = {
+            "name": title,
+            "description": "" + description
+        }
+
+        response = requests.post(
+            self.cred['url']+'api/books', headers=header, json=payload)
+
+        # Check if the request was successful (201 status code)
+        if response.status_code == 200:
+            # Print the API response data
+            print("request suceed")
+            return response.json()
+        else:
+            # Print the error message if the request failed
+            print(f"API request failed: {response.text}")
+            return None
