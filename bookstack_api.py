@@ -3,6 +3,26 @@ import requests
 import json
 
 
+class BookData:
+    def __init__(self):
+        self.name
+        self.id
+        self.slug
+    def __init__(self, create_book_response):
+        self.name = create_book_response['name']
+        self.id = create_book_response['id']
+        self.slug = create_book_response['slug']
+
+class PageData:
+    def __init__(self):
+        self.name
+        self.id
+        self.slug
+    def __init__(self, create_page_response):
+        self.name = create_page_response['name']
+        self.id = create_page_response['id']
+        self.slug = create_page_response['slug']
+
 class BookstackAPI:
     def __init__(self) -> None:
         pass
@@ -41,11 +61,12 @@ class BookstackAPI:
             print(f"API request failed: {response.text}")
             return None
 
-    def update_page(self, page_id, book_id, title, content):
+    def update_page(self, page_id, book_id, title, content, tags = None):
         # Send the API request
         payload = {
             "name": title,
-            "markdown": content
+            "markdown": content,
+            "tags" : tags or ""
         }
         if (book_id):
             payload["book_id"] = book_id

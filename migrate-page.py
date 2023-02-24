@@ -1,9 +1,9 @@
 import os
 import json
 import codecs
-from bookstack_api import BookstackAPI
+from bookstack_api import BookstackAPI, BookData, PageData
 from notion_formatting import NotionPage
-from regex_utilities import replaceSpace
+from regex_utilities import ReplaceSpaceWithinBrackets, ReplaceSpace
 import pandas
 import textwrap
 import re
@@ -13,7 +13,6 @@ def debug(string):
     if (not enable_debug):
         return
     print(string)
-
 # region credential setup
 
 
@@ -36,118 +35,192 @@ dataset_output_file = 'output.csv'
 # endregion
 
 
-# region Initiate book
-create_book_response = bookstack_api.create_book(book_name, book_description)
-debug(json.dumps(create_book_response, indent=2))
-book_slug = create_book_response['slug']
-book_id = create_book_response['id']
-
-# endregion
-
-combined_csv = pandas.DataFrame()
-dataFrame = pandas.read_csv(os.path.join(os.getcwd(), datamap_file))
+def InitiateBook(bookstack_api, book_name, book_description):
+    create_book_response = bookstack_api.create_book(
+        book_name, book_description)
+    debug(json.dumps(create_book_response, indent=2))
+    return BookData(create_book_response)
 
 
-input_directory_path = os.path.join(os.getcwd(), relative_path)
-input_files = os.listdir(input_directory_path)
+def InitiatePage(bookstack_api, book_id, page_title):
+    create_page_response = bookstack_api.create_page(
+        book_id, page_title, "Upload In Progress")
+    debug(json.dumps(create_page_response, indent=2))
+    output = PageData(create_page_response)
+    return output
 
-# region Initiate Pages Data
 
-for file_name in input_files:
-    file_path = os.path.join(input_directory_path, file_name)
-
-    print("==== Files ===")
-    print(file_path)
+def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: str, input_data_index, execute_api):
+    file_name = file_path[file_path.rfind('/')+1:]
 
     if (os.path.isdir(file_path)) or (file_name[0] == '.'):
-        continue
+        return
 
-    print("==== Page ===")
     f = codecs.open(file_path, 'r', encoding='utf-8')
     page_content = f.read()
 
     notion_page = NotionPage(page_content)
-    print(f"Title : {notion_page.title}")
-    print(f"Meta :\n{notion_page.metadata}")
+    relatedData = input_data_index['Name'] == notion_page.title
+    if (input_data_index.loc[relatedData, 'Name'].empty):
+        print("[WARNING] No Related Data in Indexes, Adding New Index Data")
+        relatedData = len(input_data_index.index)
+        input_data_index.loc[relatedData, 'Name'] = notion_page.title
 
-    relatedData = dataFrame['Name'] == notion_page.title
-    if (dataFrame.loc[relatedData, 'Name'].empty):
-        print("NO RELATED DATA")
-    dataFrame.loc[relatedData, 'FileName'] = file_name
-    dataFrame.loc[relatedData, 'FilePath'] = file_path
+    input_data_index.loc[relatedData, 'FileName'] = file_name
+    input_data_index.loc[relatedData, 'FilePath'] = file_path
 
-    create_page_response = bookstack_api.create_page(
-        book_id, notion_page.title, "Upload In Progress")
-    debug(json.dumps(create_page_response, indent=2))
-    page_id = create_page_response['id']
-    print(f"Page ID : {page_id}")
-    dataFrame.loc[relatedData, 'slug'] = create_page_response['slug']
-    dataFrame.loc[relatedData, 'PageID'] = page_id
-    dataFrame.loc[relatedData, 'PageUrl'] = f"{bookstack_api.cred['url']}books/{book_slug}/page/{dataFrame.loc[relatedData, 'slug'].values[0]}"
-    print(f"Page ID : {dataFrame.loc[relatedData, 'PageUrl'].values[0]}")
+    if (execute_api):
+        page_data = InitiatePage(
+            bookstack_api, book_data.id, notion_page.title)
+        page_url = f"{bookstack_api.cred['url']}books/{book_data.slug}/page/{page_data.slug}"
+        input_data_index.loc[relatedData, 'slug'] = page_data.slug
+        input_data_index.loc[relatedData, 'PageID'] = page_data.id
+        input_data_index.loc[relatedData, 'PageUrl'] = page_url
+
+        print(
+            f"Page Url : {input_data_index.loc[relatedData, 'PageUrl'].values[0]}")
 
 
-dataFrame = dataFrame.sort_values('Name', ascending=False)
-dataFrame.to_csv(dataset_output_file, index=False)
+def InitiatePageIndexes(bookstack_api: BookstackAPI, book_data: BookData, input_dir_path: str, input_data_index: pandas.DataFrame, execute_api: bool = True):
+    input_files = os.listdir(input_dir_path)
+    for file_name in input_files:
+        file_path = os.path.join(input_dir_path, file_name)
+        AddPageIndex(
+            bookstack_api, book_data, file_path, input_data_index, execute_api)
 
-# endregion
+    return input_data_index
 
-for index, row in dataFrame.iterrows():
-    print(row['Name'], row['FileName'])
-    file_path = row['FilePath']
-    file_name = row['FileName']
-    page_id = int(row['PageID'])
+
+def LoadPageAttachments(bookstack_api: BookstackAPI, page_id: int, file_path: str, content_data: str, execute_api: bool = False):
     attachment_dir_path = file_path[0:file_path.rfind(".")]
-    attachment_dir_name = file_name[0:file_name.rfind(".")]
+    attachment_dir_name = file_path[file_path.rfind(
+        "\\")+1:file_path.rfind(".")]
+    # print(file_path)
 
-    f = codecs.open(file_path, 'r', encoding='utf-8')
-    page_content = f.read()
+    if (not os.path.exists(attachment_dir_path)):
+        return content_data
 
-    notion_page = NotionPage(page_content)
-    notion_page.content = replaceSpace(notion_page.content)
+    attachment_files = os.listdir(attachment_dir_path)
 
-    debug(f"Have Attachment ? : {os.path.exists(attachment_dir_path)}")
+    i = 0
+    for attachment_name in attachment_files:
+        attachment_path = os.path.join(
+            attachment_dir_path, attachment_name)
 
-    # if (False):
-    if (os.path.exists(attachment_dir_path)):
-        print(f"Attachment directory : {attachment_dir_name}")
-        attachment_files = os.listdir(attachment_dir_path)
+        attachment_url = f"{i}attachments/{i}"
 
-        for attachment_name in attachment_files:
-            print("  ==== Attachment ===")
-            print(f"  attachment name : {attachment_name}")
-            attachment_path = os.path.join(
-                attachment_dir_path, attachment_name)
-
+        if execute_api:
             create_attachments_response = bookstack_api.create_attachment(
                 page_id, attachment_name, attachment_path)
             debug(textwrap.indent(json.dumps(
                 create_attachments_response, indent=2), '  '))
             attachment_id = create_attachments_response['id']
             print(f"  attachment id : {attachment_id}")
+            attachment_url = f"{bookstack_api.cred['url']}attachments/{attachment_id}"
 
-            attachment_link_path = os.path.join(
-                attachment_dir_name, attachment_name)
-            attachment_link_path = attachment_link_path.replace('\\', '/')
-            notion_page.content = notion_page.content.replace(
-                attachment_link_path, f"{bookstack_api.cred['url']}attachments/{attachment_id}")
-                # attachment_link_path, f"{i}attachments/{i}")
+        attachment_link_path = os.path.join(
+            attachment_dir_name, attachment_name)
+        attachment_link_path = attachment_link_path.replace('\\', '/')
+        content_data = content_data.replace(
+            attachment_link_path, attachment_url)
 
-    for m in re.finditer('((?<!!)\[.*\])\(((?!http).*)\)', notion_page.content):
-        relatedData = dataFrame.loc[dataFrame['FileName'] == m.group(2)]
+        i += 1
+
+    # print (content_data)
+    return content_data
+
+
+def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
+
+    for match in re.finditer('((?<!!)\[.*\])\(((?!http).*)\)', content_data):
+        print
+        relatedData = index_page_data.loc[index_page_data['FileName'] == match.group(
+            2)]
         if (relatedData['FilePath'].empty):
             continue
-        # print(relatedData['FilePath'].values[0])
-        notion_page.content = notion_page.content.replace(
-            m.group(2), relatedData["PageUrl"].values[0])
-        # print(m.group(1), '*', m.group(2))
+        try:
+            page_url = relatedData["PageUrl"].values[0]
+        except:
+            page_url = 'pageUrl'
+        content_data = content_data.replace(
+            match.group(2),  page_url)
+    return content_data
 
 
-    # if (row['Name'] == 'Fusion Animation Synchronization'):
-        # print(notion_page.content)
-    debug(notion_page.content)
+def LoadTagData(page_index: pandas.Series):
 
-    update_page_response = bookstack_api.update_page(
-        page_id=page_id, book_id=None,
-        title=notion_page.title, content=notion_page.content)
-    debug(json.dumps(update_page_response, indent=2))
+    tagString = page_index['Parents (Topic)']
+    if (pandas.isnull(tagString)):
+        return None
+    tagString = ReplaceSpace(tagString)
+    tagList = tagString.split(',')
+    tagArray = []
+    for tag in tagList:
+        tag = tag[tag.rfind('/')+1:tag.rfind(' ')]
+        tag = tag.lower().replace(' ', '-')
+        tagArray.append(tag)
+
+    return tagArray
+
+
+def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_page_data: pandas.DataFrame, execute_api: bool = False):
+    file_path = index_data['FilePath']
+    page_id = 0
+    if (execute_api):
+        page_id = int(index_data['PageID'])
+
+    f = codecs.open(file_path, 'r', encoding='utf-8')
+    page_content = f.read()
+
+
+    notion_page = NotionPage(page_content)
+    notion_page.content = ReplaceSpaceWithinBrackets(notion_page.content)
+    notion_page.content = LoadPageAttachments(
+        bookstack_api, page_id, file_path, notion_page.content, execute_api)
+    notion_page.content = CalibratePageLinks(
+        notion_page.content, index_page_data)
+
+    tagString = LoadTagData(index_data)
+    tagObj = []
+    if (tagString != None):
+        tagObj = list(map((lambda string: {'name': string}), tagString))
+        print(tagObj)
+
+    if (execute_api):
+        update_page_response = bookstack_api.update_page(
+            page_id=page_id, book_id=None,
+            title=notion_page.title, content=notion_page.content, tags=tagObj)
+        debug(json.dumps(update_page_response, indent=2))
+
+    print(notion_page.content)
+
+# region Main
+
+
+# book_data = InitiateBook(bookstack_api, book_name, book_description)
+# book_data = None
+
+# dataFrame = pandas.read_csv(os.path.join(os.getcwd(), datamap_file))
+# input_directory_path = os.path.join(os.getcwd(), relative_path)
+
+# file_name = "Unreal Engine 5 Installation 3a14402970134e8689bdfce4fa8b4de5.md"
+# file_path = os.path.join(input_directory_path, file_name)
+# dataFrame = AddPageIndex(bookstack_api, book_data,file_path, dataFrame, True)
+
+# dataFrame = InitiatePageIndexes(
+    # bookstack_api, book_data, input_directory_path, dataFrame, True)
+# dataFrame = dataFrame.sort_values('Name', ascending=False)
+# dataFrame.to_csv(dataset_output_file, index=False)
+
+dataFrame = pandas.read_csv(os.path.join(os.getcwd(), dataset_output_file))
+
+
+
+
+# row = dataFrame.loc[dataFrame['Name'] == 'Unreal Engine 5 Installation'].iloc[0]
+# LoadPageData(bookstack_api,row,dataFrame, True)
+
+for index, row in dataFrame.iterrows():
+    LoadPageData(bookstack_api, row, dataFrame, True)
+
+# endregion
