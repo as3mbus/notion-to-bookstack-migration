@@ -34,14 +34,14 @@ dataset_output_file = 'output.csv'
 
 # endregion
 
-
+# create book
 def InitiateBook(bookstack_api, book_name, book_description):
     create_book_response = bookstack_api.create_book(
         book_name, book_description)
     debug(json.dumps(create_book_response, indent=2))
     return BookData(create_book_response)
 
-
+# create empty page
 def InitiatePage(bookstack_api, book_id, page_title):
     create_page_response = bookstack_api.create_page(
         book_id, page_title, "Upload In Progress")
@@ -49,7 +49,7 @@ def InitiatePage(bookstack_api, book_id, page_title):
     output = PageData(create_page_response)
     return output
 
-
+# add page index data to page indexing table
 def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: str, input_data_index, execute_api):
     file_name = file_path[file_path.rfind('/')+1:]
 
@@ -81,6 +81,7 @@ def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: st
             f"Page Url : {input_data_index.loc[relatedData, 'PageUrl'].values[0]}")
 
 
+# index page data 
 def InitiatePageIndexes(bookstack_api: BookstackAPI, book_data: BookData, input_dir_path: str, input_data_index: pandas.DataFrame, execute_api: bool = True):
     input_files = os.listdir(input_dir_path)
     for file_name in input_files:
@@ -91,6 +92,7 @@ def InitiatePageIndexes(bookstack_api: BookstackAPI, book_data: BookData, input_
     return input_data_index
 
 
+# upload all page attachment (image, and files)
 def LoadPageAttachments(bookstack_api: BookstackAPI, page_id: int, file_path: str, content_data: str, execute_api: bool = False):
     attachment_dir_path = file_path[0:file_path.rfind(".")]
     attachment_dir_name = file_path[file_path.rfind(
@@ -130,6 +132,7 @@ def LoadPageAttachments(bookstack_api: BookstackAPI, page_id: int, file_path: st
     return content_data
 
 
+# format page to adapt with page url and attachment url 
 def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
 
     for match in re.finditer('((?<!!)\[.*\])\(((?!http).*)\)', content_data):
@@ -147,6 +150,7 @@ def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
     return content_data
 
 
+# parse tag 
 def LoadTagData(page_index: pandas.Series):
 
     tagString = page_index['Parents (Topic)']
@@ -163,6 +167,7 @@ def LoadTagData(page_index: pandas.Series):
     return tagArray
 
 
+# parse complete page information 
 def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_page_data: pandas.DataFrame, execute_api: bool = False):
     file_path = index_data['FilePath']
     page_id = 0
