@@ -35,6 +35,8 @@ dataset_output_file = 'output.csv'
 # endregion
 
 # create book
+
+
 def InitiateBook(bookstack_api, book_name, book_description):
     create_book_response = bookstack_api.create_book(
         book_name, book_description)
@@ -42,6 +44,8 @@ def InitiateBook(bookstack_api, book_name, book_description):
     return BookData(create_book_response)
 
 # create empty page
+
+
 def InitiatePage(bookstack_api, book_id, page_title):
     create_page_response = bookstack_api.create_page(
         book_id, page_title, "Upload In Progress")
@@ -50,6 +54,8 @@ def InitiatePage(bookstack_api, book_id, page_title):
     return output
 
 # add page index data to page indexing table
+
+
 def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: str, input_data_index, execute_api):
     file_name = file_path[file_path.rfind('/')+1:]
 
@@ -81,7 +87,7 @@ def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: st
             f"Page Url : {input_data_index.loc[relatedData, 'PageUrl'].values[0]}")
 
 
-# index page data 
+# index page data
 def InitiatePageIndexes(bookstack_api: BookstackAPI, book_data: BookData, input_dir_path: str, input_data_index: pandas.DataFrame, execute_api: bool = True):
     input_files = os.listdir(input_dir_path)
     for file_name in input_files:
@@ -132,7 +138,7 @@ def LoadPageAttachments(bookstack_api: BookstackAPI, page_id: int, file_path: st
     return content_data
 
 
-# format page to adapt with page url and attachment url 
+# format page to adapt with page url and attachment url
 def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
 
     for match in re.finditer('((?<!!)\[.*\])\(((?!http).*)\)', content_data):
@@ -150,7 +156,7 @@ def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
     return content_data
 
 
-# parse tag 
+# parse tag
 def LoadTagData(page_index: pandas.Series):
 
     tagString = page_index['Parents (Topic)']
@@ -167,7 +173,7 @@ def LoadTagData(page_index: pandas.Series):
     return tagArray
 
 
-# parse complete page information 
+# parse complete page information
 def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_page_data: pandas.DataFrame, execute_api: bool = False):
     file_path = index_data['FilePath']
     page_id = 0
@@ -176,7 +182,6 @@ def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_p
 
     f = codecs.open(file_path, 'r', encoding='utf-8')
     page_content = f.read()
-
 
     notion_page = NotionPage(page_content)
     notion_page.content = ReplaceSpaceWithinBrackets(notion_page.content)
@@ -218,8 +223,6 @@ def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_p
 # dataFrame.to_csv(dataset_output_file, index=False)
 
 dataFrame = pandas.read_csv(os.path.join(os.getcwd(), dataset_output_file))
-
-
 
 
 # row = dataFrame.loc[dataFrame['Name'] == 'Unreal Engine 5 Installation'].iloc[0]
