@@ -66,8 +66,9 @@ class BookstackAPI:
         payload = {
             "name": title,
             "markdown": content,
-            "tags" : tags or ""
         }
+        if tags is not None:
+            payload["tags"] = tags
         if (book_id):
             payload["book_id"] = book_id
         header = self.header

@@ -43,13 +43,17 @@ dataset_output_file = 'output.csv'
 
 
 book_data = InitiateBook(bookstack_api, book_name, book_description)
-# book_data = None
+
+# book_data = BookData({"id": 75,
+#     "name": "BookName",
+#     "slug": "bookname-yK5",})
+
 
 dataFrame = pandas.read_csv(os.path.join(os.getcwd(), datamap_file))
 input_directory_path = os.path.join(os.getcwd(), relative_path)
 
 # file_name = "Unreal Engine 5 Installation 3a14402970134e8689bdfce4fa8b4de5.md"
-file_path = os.path.join(input_directory_path, file_name)
+# file_path = os.path.join(input_directory_path, file_name)
 # dataFrame = AddPageIndex(bookstack_api, book_data,file_path, dataFrame, True)
 
 dataFrame = InitiatePageIndexes(bookstack_api, book_data, input_directory_path, dataFrame, True)
@@ -60,7 +64,7 @@ dataFrame = pandas.read_csv(os.path.join(os.getcwd(), dataset_output_file))
 
 
 # row = dataFrame.loc[dataFrame['Name'] == 'Unreal Engine 5 Installation'].iloc[0]
-LoadPageData(bookstack_api,row,dataFrame, True)
+# LoadPageData(bookstack_api,row,dataFrame, True)
 
 for index, row in dataFrame.iterrows():
     LoadPageData(bookstack_api, row, dataFrame, True)

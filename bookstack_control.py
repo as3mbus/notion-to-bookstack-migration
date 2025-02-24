@@ -27,12 +27,12 @@ def InitiateBook(bookstack_api, book_name, book_description):
 def InitiatePage(bookstack_api, book_id, page_title):
     create_page_response = bookstack_api.create_page(
         book_id, page_title, "Upload In Progress")
-    debug(json.dumps(create_page_response, indent=2))
+    # debug(json.dumps(create_page_response, indent=2))
     return PageData(create_page_response)
 
 # add page index data to page indexing table
 def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: str, input_data_index: pandas.DataFrame, execute_api: bool = True):
-    file_name = file_path[file_path.rfind('/')+1:]
+    file_name = file_path[file_path.rfind('\\')+1:] # TODO: handle various directory separator for other os
 
     if (os.path.isdir(file_path)) or (file_name[0] == '.'):
         return
@@ -55,17 +55,18 @@ def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: st
             bookstack_api, book_data.id, notion_page.title)
         page_url = f"{bookstack_api.cred['url']}books/{book_data.slug}/page/{page_data.slug}"
         input_data_index.loc[relatedData, 'slug'] = page_data.slug
-        input_data_index.loc[relatedData, 'PageID'] = page_data.id
+        input_data_index.loc[relatedData, 'PageID'] = int(page_data.id) # TODO: data is registered as float
         input_data_index.loc[relatedData, 'PageUrl'] = page_url
 
-        print(
-            f"Page Url : {input_data_index.loc[relatedData, 'PageUrl'].values[0]}")
+        # print(f"Page Url : {input_data_index.loc[relatedData, 'PageUrl']}")
 
 
 # index page data
 def InitiatePageIndexes(bookstack_api: BookstackAPI, book_data: BookData, input_dir_path: str, input_data_index: pandas.DataFrame, execute_api: bool = True):
     input_files = os.listdir(input_dir_path)
     for file_name in input_files:
+        if (file_name == ".gitkeep" or not file_name.endswith(".md")):
+            continue
         file_path = os.path.join(input_dir_path, file_name)
         AddPageIndex(
             bookstack_api, book_data, file_path, input_data_index, execute_api)
@@ -117,23 +118,21 @@ def LoadPageAttachments(bookstack_api: BookstackAPI, page_id: int, file_path: st
 def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
 
     for match in re.finditer('((?<!!)\[.*\])\(((?!http).*)\)', content_data):
-        print
-        relatedData = index_page_data.loc[index_page_data['FileName'] == match.group(
-            2)]
+        relatedData = index_page_data.loc[index_page_data['FileName'] == match.group(2)]
         if (relatedData['FilePath'].empty):
             continue
         try:
             page_url = relatedData["PageUrl"].values[0]
         except:
             page_url = 'pageUrl'
-        content_data = content_data.replace(
-            match.group(2),  page_url)
+        content_data = content_data.replace(match.group(2),  page_url)
     return content_data
 
 
 # parse tag
 def LoadTagData(page_index: pandas.Series):
-
+    if 'Parents (Topic)' not in page_index: # TODO: replace / parameterize 'Parents (Topic)' to tag key value
+        return None
     tagString = page_index['Parents (Topic)']
     if (pandas.isnull(tagString)):
         return None
@@ -166,8 +165,9 @@ def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_p
         notion_page.content, index_page_data)
 
     tagString = LoadTagData(index_data)
-    tagObj = []
+    tagObj = None
     if (tagString != None):
+        tagObj = []
         tagObj = list(map((lambda string: {'name': string}), tagString))
         print(tagObj)
 
