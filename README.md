@@ -38,8 +38,11 @@ Features:
 
 1. install required dependency using pip `pip install pandas requests`
 2. create `credential.json` by following `credential-sample.json`
-    - create token in bookstack user settings
-3. modify content of `migrate_page_database.py`, and/or `migrate_single_page.py` configuration line to conform your needs
+   - create token in bookstack user settings
+3. put the notion pages markdown and it's attachment folder in input folder
+   ![alt text](Docs/image.png)
+4. put page database `.csv` to root dir, and rename it to `dataMap.csv`
+5. modify content of `migrate_page_database.py`, and/or `migrate_single_page.py` configuration line to conform your needs
 
 <!-- CONTRIBUTING -->
 

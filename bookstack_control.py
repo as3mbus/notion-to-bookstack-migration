@@ -10,10 +10,12 @@ import re
 
 enable_debug = True
 
+
 def debug(string):
     if (not enable_debug):
         return
     print(string)
+
 
 def InitiateBook(bookstack_api, book_name, book_description):
     create_book_response = bookstack_api.create_book(
@@ -31,8 +33,11 @@ def InitiatePage(bookstack_api, book_id, page_title):
     return PageData(create_page_response)
 
 # add page index data to page indexing table
+
+
 def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: str, input_data_index: pandas.DataFrame, execute_api: bool = True):
-    file_name = file_path[file_path.rfind('\\')+1:] # TODO: handle various directory separator for other os
+    # TODO: handle various directory separator for other os
+    file_name = file_path[file_path.rfind('\\')+1:]
 
     if (os.path.isdir(file_path)) or (file_name[0] == '.'):
         return
@@ -55,7 +60,8 @@ def AddPageIndex(bookstack_api: BookstackAPI, book_data: BookData, file_path: st
             bookstack_api, book_data.id, notion_page.title)
         page_url = f"{bookstack_api.cred['url']}books/{book_data.slug}/page/{page_data.slug}"
         input_data_index.loc[relatedData, 'slug'] = page_data.slug
-        input_data_index.loc[relatedData, 'PageID'] = int(page_data.id) # TODO: data is registered as float
+        input_data_index.loc[relatedData, 'PageID'] = int(
+            page_data.id)  # TODO: data is registered as float
         input_data_index.loc[relatedData, 'PageUrl'] = page_url
 
         # print(f"Page Url : {input_data_index.loc[relatedData, 'PageUrl']}")
@@ -118,7 +124,8 @@ def LoadPageAttachments(bookstack_api: BookstackAPI, page_id: int, file_path: st
 def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
 
     for match in re.finditer('((?<!!)\[.*\])\(((?!http).*)\)', content_data):
-        relatedData = index_page_data.loc[index_page_data['FileName'] == match.group(2)]
+        relatedData = index_page_data.loc[index_page_data['FileName'] == match.group(
+            2)]
         if (relatedData['FilePath'].empty):
             continue
         try:
@@ -130,10 +137,10 @@ def CalibratePageLinks(content_data: str, index_page_data: pandas.DataFrame):
 
 
 # parse tag
-def LoadTagData(page_index: pandas.Series):
-    if 'Parents (Topic)' not in page_index: # TODO: replace / parameterize 'Parents (Topic)' to tag key value
+def LoadTagData(page_index: pandas.Series, tag_key: str):
+    if tag_key not in page_index:
         return None
-    tagString = page_index['Parents (Topic)']
+    tagString = page_index[tag_key]
     if (pandas.isnull(tagString)):
         return None
     tagString = ReplaceSpace(tagString)
@@ -148,7 +155,7 @@ def LoadTagData(page_index: pandas.Series):
 
 
 # load page data and update content of bookstack page information
-def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_page_data: pandas.DataFrame, execute_api: bool = False):
+def LoadPageData(bookstack_api: BookstackAPI, index_data: pandas.Series, index_page_data: pandas.DataFrame, Tag_Key: str = "Tags", execute_api: bool = False):
     file_path = index_data['FilePath']
     page_id = 0
     if (execute_api):
